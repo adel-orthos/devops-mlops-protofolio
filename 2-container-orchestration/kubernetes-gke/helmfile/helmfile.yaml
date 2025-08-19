@@ -1,0 +1,111 @@
+repositories:
+  - name: qdrant
+    url: https://qdrant.github.io/qdrant-helm
+  - name: prometheus-community
+    url: https://prometheus-community.github.io/helm-charts
+  - name: grafana
+    url: https://grafana.github.io/helm-charts
+  - name: ingress-nginx
+    url: https://kubernetes.github.io/ingress-nginx
+
+helmDefaults:
+  wait: true
+  timeout: 600
+  atomic: false
+  cleanupOnFail: true
+  force: false
+
+environments:
+  development:
+    values:
+      - environments/development/values.yaml
+    secrets:
+      - environments/development/secrets.yaml
+  staging:
+    values:
+      - environments/staging/values.yaml
+    secrets:
+      - environments/staging/secrets.yaml
+  production:
+    values:
+      - environments/production/values.yaml
+    secrets:
+      - environments/production/secrets.yaml
+
+releases:
+  # Vector Database for ML embeddings
+  - name: qdrant
+    namespace: ml-infrastructure
+    chart: qdrant/qdrant
+    version: 1.14.0
+    values:
+      - charts/qdrant/values.yaml
+      - environments/{{ .Environment.Name }}/qdrant-values.yaml
+    condition: qdrant.enabled
+    hooks:
+      - events: ["presync"]
+        showlogs: true
+        command: "kubectl"
+        args: ["create", "namespace", "ml-infrastructure", "--dry-run=client", "-o", "yaml", "|", "kubectl", "apply", "-f", "-"]
+
+  # Monitoring Stack
+  - name: prometheus
+    namespace: monitoring
+    chart: prometheus-community/kube-prometheus-stack
+    version: 55.5.0
+    values:
+      - charts/prometheus/values.yaml
+      - environments/{{ .Environment.Name }}/prometheus-values.yaml
+    condition: monitoring.prometheus.enabled
+    hooks:
+      - events: ["presync"]
+        showlogs: true
+        command: "kubectl"
+        args: ["create", "namespace", "monitoring", "--dry-run=client", "-o", "yaml", "|", "kubectl", "apply", "-f", "-"]
+
+  # Ingress Controller
+  - name: ingress-nginx
+    namespace: ingress-system
+    chart: ingress-nginx/ingress-nginx
+    version: 4.8.3
+    values:
+      - charts/ingress-nginx/values.yaml
+      - environments/{{ .Environment.Name }}/ingress-values.yaml
+    condition: ingress.enabled
+    hooks:
+      - events: ["presync"]
+        showlogs: true
+        command: "kubectl"
+        args: ["create", "namespace", "ingress-system", "--dry-run=client", "-o", "yaml", "|", "kubectl", "apply", "-f", "-"]
+
+  # ML Application
+  - name: ml-crawler
+    namespace: ml-pipeline
+    chart: charts/ml-workload
+    version: 0.1.0
+    values:
+      - charts/ml-workload/values.yaml
+      - environments/{{ .Environment.Name }}/ml-crawler-values.yaml
+    condition: applications.mlCrawler.enabled
+    needs:
+      - ml-infrastructure/qdrant
+    hooks:
+      - events: ["presync"]
+        showlogs: true
+        command: "kubectl"
+        args: ["create", "namespace", "ml-pipeline", "--dry-run=client", "-o", "yaml", "|", "kubectl", "apply", "-f", "-"]
+
+  # Web Application
+  - name: web-app
+    namespace: web-application
+    chart: charts/web-application
+    version: 0.1.0
+    values:
+      - charts/web-application/values.yaml
+      - environments/{{ .Environment.Name }}/web-app-values.yaml
+    condition: applications.webApp.enabled
+    hooks:
+      - events: ["presync"]
+        showlogs: true
+        command: "kubectl"
+        args: ["create", "namespace", "web-application", "--dry-run=client", "-o", "yaml", "|", "kubectl", "apply", "-f", "-"] 

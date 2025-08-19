@@ -1,0 +1,116 @@
+{
+    "family": "document-processor",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": ["FARGATE"],
+    "cpu": "256",
+    "memory": "512",
+    "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/TaskExecutionRole",
+    "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/TaskRole",
+    "containerDefinitions": [
+        {
+            "name": "document-processor",
+            "image": "ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/document-processor:latest",
+            "cpu": 0,
+            "portMappings": [
+                {
+                    "containerPort": 9000,
+                    "hostPort": 9000,
+                    "protocol": "tcp",
+                    "name": "http"
+                }
+            ],
+            "essential": true,
+            "environment": [
+                {
+                    "name": "NODE_ENV",
+                    "value": "production"
+                },
+                {
+                    "name": "PORT",
+                    "value": "9000"
+                }
+            ],
+            "secrets": [
+                {
+                    "name": "DEBUG",
+                    "valueFrom": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/app/document-processor/DEBUG"
+                },
+                {
+                    "name": "DOCUMENT_EDITOR_HOST",
+                    "valueFrom": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/app/document-processor/EDITOR_HOST"
+                },
+                {
+                    "name": "OPENAI_API_KEY",
+                    "valueFrom": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/app/document-processor/OPENAI_API_KEY"
+                },
+                {
+                    "name": "VECTOR_DB_API_KEY",
+                    "valueFrom": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/app/document-processor/VECTOR_DB_API_KEY"
+                },
+                {
+                    "name": "DATABASE_URL",
+                    "valueFrom": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/app/document-processor/DATABASE_URL"
+                }
+            ],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/document-processor",
+                    "awslogs-region": "REGION",
+                    "awslogs-stream-prefix": "document-processor",
+                    "awslogs-create-group": "true"
+                }
+            },
+            "healthCheck": {
+                "command": [
+                    "CMD-SHELL",
+                    "curl -f http://localhost:9000/health || exit 1"
+                ],
+                "interval": 30,
+                "timeout": 5,
+                "retries": 3,
+                "startPeriod": 60
+            },
+            "systemControls": []
+        },
+        {
+            "name": "document-builder",
+            "image": "ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/document-builder:latest",
+            "cpu": 0,
+            "memoryReservation": 128,
+            "essential": true,
+            "environment": [
+                {
+                    "name": "BUILDER_MODE",
+                    "value": "sidecar"
+                }
+            ],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/document-processor-builder",
+                    "awslogs-region": "REGION",
+                    "awslogs-stream-prefix": "builder",
+                    "awslogs-create-group": "true"
+                }
+            },
+            "systemControls": []
+        }
+    ],
+    "volumes": [],
+    "placementConstraints": [],
+    "tags": [
+        {
+            "key": "Environment",
+            "value": "production"
+        },
+        {
+            "key": "Service",
+            "value": "document-processing"
+        },
+        {
+            "key": "ManagedBy",
+            "value": "ECS"
+        }
+    ]
+} 

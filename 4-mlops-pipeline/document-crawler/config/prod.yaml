@@ -1,0 +1,73 @@
+# Production Configuration for Document Crawler
+name: "production-document-crawler"
+
+# Target websites to crawl
+start_urls:
+  - "https://example-docs.com"
+  - "https://company-knowledge-base.com"
+  - "https://technical-documentation.org"
+
+# Domain restrictions
+allowed_domains:
+  - "example-docs.com"
+  - "company-knowledge-base.com" 
+  - "technical-documentation.org"
+  - "subdomain.example-docs.com"
+
+# Crawling parameters
+max_depth: 4
+max_pages: 5000
+delay_between_requests: 2.0  # Respectful crawling
+concurrent_requests: 5       # Conservative for production
+
+# Document types to collect
+document_extensions:
+  - ".pdf"
+  - ".docx"
+  - ".doc" 
+  - ".txt"
+  - ".md"
+  - ".html"
+  - ".pptx"
+  - ".xlsx"
+
+# URL patterns to exclude
+exclude_patterns:
+  - "login"
+  - "admin"
+  - "auth"
+  - "private"
+  - "internal"
+  - "restricted"
+  - "confidential"
+  - "draft"
+  - "temp"
+  - "test"
+
+# AWS Configuration
+s3_bucket: "document-processing-prod-bucket"
+sqs_queue_url: "https://sqs.us-east-1.amazonaws.com/ACCOUNT_ID/document-processing-queue"
+
+# Logging configuration
+log_level: "INFO"
+log_format: "json"
+
+# Performance settings
+request_timeout: 30
+page_load_timeout: 45
+retry_attempts: 3
+retry_delay: 5
+
+# Security settings
+user_agent: "DocumentCrawler/1.0 (Production)"
+respect_robots_txt: true
+rate_limit_per_domain: 1  # requests per second per domain
+
+# Monitoring
+enable_metrics: true
+metrics_namespace: "MLOps/DocumentCrawler/Production"
+health_check_interval: 60
+
+# Resource limits
+max_memory_mb: 2048
+max_disk_usage_mb: 5120 

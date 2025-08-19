@@ -1,0 +1,196 @@
+# Service Configuration for Document Processor
+# This file defines environment-specific settings for ECS task definition management
+
+serviceName: document-processor
+
+# Resource allocation (will be applied to ECS task definition)
+cpu: 512
+memory: 1024
+
+# Secrets Management
+# Wildcard parameter injection - automatically discovers and injects all SSM parameters under this path
+secretsWildcard: /app/prod/document-processor
+
+# Reserved secrets - specific parameters that need explicit configuration
+reservedSecrets:
+  - name: DATABASE_URL
+    valueFrom: arn:aws:ssm:us-east-1:ACCOUNT_ID:parameter/shared/database-url
+  - name: REDIS_CLUSTER_ENDPOINT
+    valueFrom: arn:aws:ssm:us-east-1:ACCOUNT_ID:parameter/shared/redis-cluster
+  - name: S3_DOCUMENT_BUCKET
+    valueFrom: arn:aws:ssm:us-east-1:ACCOUNT_ID:parameter/shared/s3-document-bucket
+
+# Monitoring Configuration
+runDatadogAgent: true
+datadogAgentConfig:
+  apiKey: /app/prod/datadog/api-key
+  site: datadoghq.com
+  logLevel: info
+  apmEnabled: true
+  logCollection: true
+  processCollection: true
+  networkMonitoring: true
+  tags:
+    - env:production
+    - service:document-processor
+    - version:1.0.0
+
+# Builder Container Configuration
+# Utility container for document processing tasks
+builder: true
+builderConfig:
+  image: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/document-builder:latest
+  essential: true
+  memoryReservation: 128
+  environment:
+    - name: BUILDER_MODE
+      value: sidecar
+    - name: PROCESSING_ENABLED
+      value: "true"
+  mountPoints:
+    - sourceVolume: temp-storage
+      containerPath: /tmp/processing
+      readOnly: false
+
+# Business Unit (for logging and cost allocation)
+bu: ai-engineering
+
+# Environment-specific overrides
+environments:
+  dev:
+    cpu: 256
+    memory: 512
+    runDatadogAgent: false
+    secretsWildcard: /app/dev/document-processor
+    datadogAgentConfig:
+      logLevel: debug
+  
+  staging:
+    cpu: 512
+    memory: 1024
+    secretsWildcard: /app/staging/document-processor
+    datadogAgentConfig:
+      logLevel: info
+  
+  prod:
+    cpu: 1024
+    memory: 2048
+    secretsWildcard: /app/prod/document-processor
+    datadogAgentConfig:
+      logLevel: warn
+      apmEnabled: true
+
+# Additional task definition customizations
+taskDefinitionOverrides:
+  volumes:
+    - name: temp-storage
+      host:
+        sourcePath: /tmp
+  
+  placementConstraints:
+    - type: memberOf
+      expression: attribute:ecs.instance-type =~ t3.*
+  
+  # Network configuration
+  networkMode: awsvpc
+  requiresCompatibilities:
+    - FARGATE
+  
+  # Execution role permissions
+  executionRolePermissions:
+    - Effect: Allow
+      Action:
+        - ssm:GetParameter
+        - ssm:GetParameters
+        - ssm:GetParametersByPath
+      Resource:
+        - arn:aws:ssm:us-east-1:ACCOUNT_ID:parameter/app/prod/document-processor/*
+        - arn:aws:ssm:us-east-1:ACCOUNT_ID:parameter/shared/*
+    
+    - Effect: Allow
+      Action:
+        - secretsmanager:GetSecretValue
+      Resource:
+        - arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:prod/document-processor/*
+  
+  # Task role permissions (application-level permissions)
+  taskRolePermissions:
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:PutObject
+        - s3:DeleteObject
+      Resource:
+        - arn:aws:s3:::document-processing-bucket/*
+    
+    - Effect: Allow
+      Action:
+        - bedrock:InvokeModel
+        - bedrock:InvokeModelWithResponseStream
+      Resource:
+        - arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-v2
+        - arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-text-express-v1
+    
+    - Effect: Allow
+      Action:
+        - textract:AnalyzeDocument
+        - textract:StartDocumentAnalysis
+        - textract:GetDocumentAnalysis
+      Resource: "*"
+
+# Health check configuration
+healthCheck:
+  enabled: true
+  path: /health
+  interval: 30
+  timeout: 5
+  retries: 3
+  startPeriod: 60
+
+# Logging configuration
+logging:
+  driver: awslogs
+  options:
+    awslogs-group: /ecs/document-processor
+    awslogs-region: us-east-1
+    awslogs-stream-prefix: document-processor
+    awslogs-create-group: "true"
+
+# Auto-scaling configuration
+autoScaling:
+  enabled: true
+  minCapacity: 2
+  maxCapacity: 20
+  targetCPUUtilization: 70
+  targetMemoryUtilization: 80
+  scaleUpCooldown: 300
+  scaleDownCooldown: 300
+
+# Load balancer configuration
+loadBalancer:
+  enabled: true
+  type: application
+  scheme: internet-facing
+  healthCheck:
+    path: /health
+    interval: 30
+    timeout: 5
+    healthyThreshold: 2
+    unhealthyThreshold: 5
+    matcher: "200"
+
+# Deployment configuration
+deployment:
+  strategy: rolling
+  maxUnavailable: 0
+  maxSurge: 100
+  healthCheckGracePeriod: 300
+  
+# Tags for resource management and cost allocation
+tags:
+  Environment: production
+  Service: document-processor
+  Team: ai-engineering
+  CostCenter: engineering
+  Project: document-processing-platform
+  ManagedBy: github-actions 

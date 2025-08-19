@@ -1,0 +1,29 @@
+# ---------------------------------------------------------------------------------------------------------------------
+# ACCOUNT LEVEL VARIABLES
+# These variables apply to all resources in this AWS account
+# Copy this file to account.hcl and customize for your environment
+# ---------------------------------------------------------------------------------------------------------------------
+
+locals {
+  # Account identification
+  account_name   = "example-account"      # Human-readable account name
+  aws_account_id = "123456789012"         # AWS Account ID (12 digits)
+  aws_profile    = "example-profile"      # AWS CLI profile name
+
+  # Organizational settings
+  organization = "your-company"
+  cost_center  = "engineering"
+  
+  # Security settings
+  enable_cloudtrail = true
+  enable_config     = true
+  enable_guardduty  = true
+  
+  # Common tags applied to all resources in this account
+  common_tags = {
+    Account     = local.account_name
+    CostCenter  = local.cost_center
+    Owner       = "devops-team"
+    Terraform   = "true"
+  }
+} 

@@ -1,0 +1,207 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-crawler
+  namespace: ml-pipeline
+  labels:
+    app: ml-crawler
+    component: batch-processor
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ml-crawler
+  template:
+    metadata:
+      labels:
+        app: ml-crawler
+        component: batch-processor
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: ml-crawler-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 2000
+      containers:
+      - name: crawler
+        image: gcr.io/PROJECT_ID/ml-crawler:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        - containerPort: 9090
+          name: metrics
+          protocol: TCP
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: LOG_LEVEL
+          value: "info"
+        - name: WORKER_CONCURRENCY
+          value: "4"
+        - name: BATCH_SIZE
+          value: "10"
+        envFrom:
+        - secretRef:
+            name: ml-crawler-secrets
+        - configMapRef:
+            name: ml-crawler-config
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: temp-storage
+          mountPath: /tmp
+        - name: crawler-config
+          mountPath: /app/config
+          readOnly: true
+      volumes:
+      - name: temp-storage
+        emptyDir:
+          sizeLimit: 1Gi
+      - name: crawler-config
+        configMap:
+          name: ml-crawler-config
+          items:
+          - key: crawler.yaml
+            path: crawler.yaml
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - ml-crawler
+              topologyKey: kubernetes.io/hostname
+      tolerations:
+      - key: "workload-type"
+        operator: "Equal"
+        value: "batch"
+        effect: "NoSchedule"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ml-crawler-service
+  namespace: ml-pipeline
+  labels:
+    app: ml-crawler
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  - port: 9090
+    targetPort: 9090
+    protocol: TCP
+    name: metrics
+  selector:
+    app: ml-crawler
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ml-crawler-config
+  namespace: ml-pipeline
+data:
+  crawler.yaml: |
+    crawler:
+      batch_size: 10
+      concurrency: 4
+      timeout: 30
+      retry_attempts: 3
+      retry_delay: 5
+    
+    storage:
+      type: gcs
+      bucket: ml-processed-data
+      prefix: crawled-documents
+    
+    monitoring:
+      enabled: true
+      metrics_port: 9090
+      health_check_path: /health
+    
+    logging:
+      level: info
+      format: json
+      output: stdout
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ml-crawler-sa
+  namespace: ml-pipeline
+  annotations:
+    iam.gke.io/gcp-service-account: ml-crawler@PROJECT_ID.iam.gserviceaccount.com
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ml-crawler-network-policy
+  namespace: ml-pipeline
+spec:
+  podSelector:
+    matchLabels:
+      app: ml-crawler
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    - podSelector:
+        matchLabels:
+          app: prometheus
+    ports:
+    - protocol: TCP
+      port: 9090
+  egress:
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443  # HTTPS outbound
+    - protocol: TCP
+      port: 80   # HTTP outbound
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53   # DNS 

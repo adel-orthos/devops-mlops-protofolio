@@ -1,0 +1,74 @@
+{
+  "family": "document-processor",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/TaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/TaskRole",
+  "containerDefinitions": [
+    {
+      "name": "document-processor",
+      "image": "ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/document-processor:latest",
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "hostPort": 8080,
+          "protocol": "tcp",
+          "name": "http"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "name": "PORT",
+          "value": "8080"
+        }
+      ],
+      "secrets": [],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/document-processor",
+          "awslogs-region": "REGION",
+          "awslogs-stream-prefix": "document-processor",
+          "awslogs-create-group": "true"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "curl -f http://localhost:8080/health || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "readonlyRootFilesystem": false,
+      "linuxParameters": {
+        "initProcessEnabled": true
+      }
+    }
+  ],
+  "volumes": [],
+  "placementConstraints": [],
+  "tags": [
+    {
+      "key": "Environment",
+      "value": "ENVIRONMENT"
+    },
+    {
+      "key": "Service",
+      "value": "document-processor"
+    },
+    {
+      "key": "ManagedBy",
+      "value": "github-actions"
+    }
+  ]
+} 

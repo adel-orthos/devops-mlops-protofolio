@@ -1,0 +1,53 @@
+# ---------------------------------------------------------------------------------------------------------------------
+# REGION LEVEL VARIABLES
+# These variables apply to all resources in this AWS region
+# Copy this file to region.hcl and customize for your environment
+# ---------------------------------------------------------------------------------------------------------------------
+
+locals {
+  # Region identification
+  aws_region = "us-east-1"  # Primary AWS region
+  
+  # Region-specific settings
+  availability_zones = [
+    "${local.aws_region}a",
+    "${local.aws_region}b",
+    "${local.aws_region}c"
+  ]
+  
+  # Network configuration
+  vpc_cidr = "10.0.0.0/16"
+  
+  # Subnet configuration (adjust based on your needs)
+  subnet_cidrs = {
+    public = [
+      "10.0.1.0/24",  # Public subnet AZ-a
+      "10.0.2.0/24",  # Public subnet AZ-b
+      "10.0.3.0/24"   # Public subnet AZ-c
+    ]
+    private = [
+      "10.0.11.0/24", # Private subnet AZ-a
+      "10.0.12.0/24", # Private subnet AZ-b
+      "10.0.13.0/24"  # Private subnet AZ-c
+    ]
+    database = [
+      "10.0.21.0/24", # Database subnet AZ-a
+      "10.0.22.0/24", # Database subnet AZ-b
+      "10.0.23.0/24"  # Database subnet AZ-c
+    ]
+  }
+  
+  # Region-specific AMIs (update with latest AMIs for your region)
+  amis = {
+    amazon_linux_2 = "ami-0abcdef1234567890"  # Update with actual AMI ID
+    ubuntu_20_04   = "ami-0123456789abcdef0"  # Update with actual AMI ID
+  }
+  
+  # Regional compliance settings
+  data_residency_required = false  # Set to true if data must stay in region
+  
+  # Region-specific tags
+  region_tags = {
+    Region = local.aws_region
+  }
+} 

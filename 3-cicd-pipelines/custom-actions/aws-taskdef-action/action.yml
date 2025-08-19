@@ -1,0 +1,34 @@
+name: 'Advanced ECS Task Definition Manager'
+description: 'Dynamically inject AWS SSM parameters, configure monitoring agents, and manage multi-container ECS task definitions'
+branding:
+  icon: 'cloud'
+  color: 'orange'
+
+inputs:
+  task-definition:
+    description: 'Path to the ECS task definition JSON file'
+    required: true
+  container-name:
+    description: 'Name of the primary container in the containerDefinitions section'
+    required: true
+  config-path:
+    description: 'Path to the service configuration YAML file'
+    required: true
+  environment:
+    description: 'Target environment (dev, staging, prod)'
+    required: true
+  aws-region:
+    description: 'AWS region for the deployment'
+    required: false
+    default: 'us-east-1'
+  aws-ssm-region:
+    description: 'AWS region for SSM parameters (if different from deployment region)'
+    required: false
+
+outputs:
+  task-definition:
+    description: 'Path to the modified task definition file'
+
+runs:
+  using: 'node16'
+  main: 'index.js' 

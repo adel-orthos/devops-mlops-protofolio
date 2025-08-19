@@ -1,3 +1,8 @@
+![IaC](https://img.shields.io/badge/IaC-Terraform-blue)
+![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-blue)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-Helmfile-blue)
+![Cloud](https://img.shields.io/badge/Cloud-AWS%20%7C%20GCP-blue)
+
 # DevOps & MLOps Infrastructure Portfolio
 
 > **Production-ready infrastructure patterns and automation for multi-cloud AI workloads**
